@@ -6,6 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
 from dotenv import load_dotenv
 from aiohttp import web
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -24,6 +25,9 @@ if not WEBHOOK_URL:
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Register a simple /start command handler
 @router.message(Command("start"))
@@ -49,10 +53,14 @@ async def handle_webhook(request):
     """
     Handles incoming updates from Telegram via webhook.
     """
-    body = await request.json()
-    update = Update.to_object(body)
-    await dp.feed_update(bot, update)
-    return web.Response()
+    try:
+        body = await request.json()
+        update = Update.to_object(body)
+        await dp.feed_update(bot, update)
+        return web.Response(status=200, text="OK")
+    except Exception as e:
+        logging.error(f"Webhook processing error: {e}")
+        return web.Response(status=500, text="Internal Server Error")
 
 # Main entry point
 async def main():
@@ -72,13 +80,11 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"Webhook listening on port {port}...")
+    logging.info(f"Webhook listening on port {port}...")
 
 if __name__ == "__main__":
     import asyncio
     try:
         asyncio.run(main())
     except Exception as e:
-        import logging
         logging.error(f"Unhandled exception: {e}")
-        raise
