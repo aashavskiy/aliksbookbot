@@ -9,6 +9,7 @@ from email.mime.base import MIMEBase
 from email import encoders
 from email.mime.multipart import MIMEMultipart
 from smtplib import SMTP
+from aiohttp import web
 from dotenv import load_dotenv
 from whitelist import WHITELIST  # Import authorized user list
 
@@ -111,17 +112,32 @@ def send_to_pocketbook(file_path, file_name):
         server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)  # Authenticate
         server.sendmail(EMAIL_ADDRESS, POCKETBOOK_EMAIL, msg.as_string())  # Send the email
 
+# Start a lightweight HTTP server for Google Cloud Run
+async def start_server():
+    async def healthcheck(request):
+        return web.Response(text="Bot is running!")
+
+    app = web.Application()
+    app.router.add_get("/", healthcheck)
+
+    port = int(os.getenv("PORT", 8080))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logging.info(f"HTTP server running on port {port}...")
+
 # Main entry point of the bot
 async def main():
     """
-    Main function to start the bot's polling loop.
+    Main function to start the bot's polling loop and HTTP server.
     """
-    dp.include_router(router)  # Add the router to the dispatcher
+    dp.include_router(router)
 
-    # Read the PORT from environment variables (default to 8080)
-    port = int(os.getenv("PORT", 8080))
+    # Start HTTP server in the background
+    await start_server()
 
-    logging.info(f"Starting bot on port {port}...")
+    # Start Telegram bot polling
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
