@@ -84,7 +84,11 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+<<<<<<< HEAD
     try:
         asyncio.run(main())
     except Exception as e:
         logging.error(f"Unhandled exception: {e}")
+=======
+    asyncio.run(main()) 
+>>>>>>> 8125c3a (Rolling back to lockal working version)
