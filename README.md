@@ -1,36 +1,41 @@
-README.md
+Updated README.md
 
 # Telegram Bot: Send-to-PocketBook
 
-This is a Telegram bot designed to simplify the process of uploading e-books to your PocketBook device. The bot allows users to send book files directly to a predefined PocketBook email address through Telegram. 
+This is a Telegram bot designed to simplify the process of uploading e-books to your PocketBook device. The bot allows authorized users to send book files directly to a predefined PocketBook email address through Telegram. It securely manages secrets and configurations using environment variables.
 
 ---
 
 ## **Features**
-- Accepts files in popular e-book formats such as `.epub`, `.fb2`, `.mobi`, etc.
-- Sends the received files to your PocketBook email for synchronization with your device.
-- Supports a whitelist of authorized Telegram users.
-- Easy to configure and extend.
+- **File Uploads**: Accepts popular e-book formats (e.g., `.epub`, `.fb2`, `.mobi`) and sends them to PocketBook.
+- **Whitelist Security**: Only authorized users can interact with the bot.
+- **Environment Variables**: Secrets like API tokens and email credentials are securely managed using `.env` files or cloud-managed environment variables.
+- **Automatic File Cleanup**: Deletes temporary files after successful upload.
+- **SMTP Integration**: Sends files via email using the configured SMTP server.
 
 ---
 
 ## **Project Structure**
+
 Here is a breakdown of the files in this repository:
 
 - **`bookbot.py`**:  
-  The main script for the bot. Handles file uploads, user authentication, and sending files to the PocketBook email.
+  The main bot script that handles file uploads, user authentication, and sending books to PocketBook.
 
-- **`config.py`**:  
-  Configuration file that contains essential variables such as the bot token, PocketBook email, and email server settings.
+- **`requirements.txt`**:  
+  Lists all the dependencies required for the bot to function.
+
+- **`.env`**:  
+  A file containing secrets such as the Telegram API token and email credentials (used locally, not included in the repository for security reasons).
 
 - **`whitelist.py`**:  
-  Contains a list of authorized Telegram user IDs. Only these users are allowed to send files to the bot.
+  Contains a list of authorized Telegram user IDs (whitelist).
 
 - **`.gitignore`**:  
-  Specifies files and folders to exclude from version control (e.g., virtual environment files, logs, etc.).
+  Specifies files and folders to exclude from version control (e.g., `.env`, virtual environment files, logs).
 
 - **`README.md`**:  
-  This file. Explains the bot's purpose, features, setup, and usage.
+  Explains the bot's purpose, features, setup, and usage instructions.
 
 ---
 
@@ -55,23 +60,16 @@ Install the required Python libraries:
 
 pip install -r requirements.txt
 
-4. Configure the Bot
+4. Create a .env File
 
-Create the config.py file to include your credentials and settings:
+Create a .env file in the project root and add your secrets:
 
-# config.py
-
-# Telegram Bot API Token
-API_TOKEN = "your-telegram-bot-token"
-
-# PocketBook email address
-POCKETBOOK_EMAIL = "your-pocketbook-email@pbsync.com"
-
-# Email configuration
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_ADDRESS = "your-email@gmail.com"  # Email used to send books
-EMAIL_PASSWORD = "your-app-password"   # App-specific password for your email
+API_TOKEN=your-telegram-bot-token
+POCKETBOOK_EMAIL=your-pocketbook-email@pbsync.com
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+EMAIL_ADDRESS=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
 
 5. Add Authorized Users
 
@@ -90,9 +88,12 @@ Start the bot using the following command:
 
 python bookbot.py
 
-Running the Bot as a Service
+Running the Bot in the Cloud
 
-To ensure the bot runs continuously, you can set it up as a systemd service. Refer to the instructions in the conversation for detailed steps.
+For deploying the bot in a cloud environment like Google Cloud Run or Heroku, ensure you set the environment variables directly in the cloud platform instead of using .env. Example for Google Cloud Run:
+
+gcloud run services update pocketbook-bot \
+    --update-env-vars API_TOKEN="your-telegram-bot-token",POCKETBOOK_EMAIL="your-pocketbook-email@pbsync.com",SMTP_SERVER="smtp.gmail.com",SMTP_PORT="587",EMAIL_ADDRESS="your-email@gmail.com",EMAIL_PASSWORD="your-app-password"
 
 Example Usage
 	1.	Start the bot in Telegram by sending the /start command.
@@ -101,8 +102,8 @@ Example Usage
 
 Future Enhancements
 	•	Add multi-language support.
-	•	Integrate with other e-reader platforms (e.g., Kindle, Bookmate).
-	•	Enable real-time status tracking for uploaded books.
+	•	Extend functionality to support other e-reader platforms (e.g., Kindle, Bookmate).
+	•	Add support for larger files and chunked uploads.
 
 Contributing
 
@@ -111,14 +112,3 @@ Feel free to fork this repository and submit pull requests for improvements or n
 License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
-### **What’s Included**
-1. **File descriptions**: Explained the purpose of each file in the project.
-2. **Setup instructions**: Detailed steps for setting up and running the bot.
-3. **Configuration template**: Included a template for `config.py`.
-4. **Whitelist instructions**: Explained how to manage authorized users in `whitelist.py`.
-5. **Future Enhancements**: Suggestions for expanding the bot.
-
-Let me know if you need further adjustments!
