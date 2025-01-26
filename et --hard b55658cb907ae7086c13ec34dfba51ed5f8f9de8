@@ -1,0 +1,41 @@
+[33mcommit 65ecf99a6e3f6083466e870ff92a9aaa25f3903b[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Alik <ashavskiy@gmail.com>
+Date:   Sun Jan 26 22:57:40 2025 +0200
+
+    Rolling back to lockal working version
+
+[33mcommit 6adafdfe9b517ff38f891c9b0c637c965ebde4c7[m
+Author: aashavskiy <ashavskiy@gmail.com>
+Date:   Sun Jan 26 22:42:48 2025 +0200
+
+    .env.example added
+
+[33mcommit 0fa051a0de3d8032b0d403b7b4b7204faffca58a[m
+Author: aashavskiy <ashavskiy@gmail.com>
+Date:   Sun Jan 26 22:19:14 2025 +0200
+
+    .env.example added
+
+[33mcommit b55658cb907ae7086c13ec34dfba51ed5f8f9de8[m
+Author: Alik <ashavskiy@gmail.com>
+Date:   Sun Jan 26 14:08:10 2025 +0200
+
+    Google Cloud Run adoption
+
+[33mcommit 460215a6c5ca9a3a9381fd45433207c15190ab60[m
+Author: Alik <ashavskiy@gmail.com>
+Date:   Sun Jan 26 13:47:03 2025 +0200
+
+    Google Cloud Run adoption
+
+[33mcommit ce7180b1e729c77ceb6e76b601280bc1653fae9b[m
+Author: Alik <ashavskiy@gmail.com>
+Date:   Sun Jan 26 13:25:24 2025 +0200
+
+    Refactor bot: Use environment variables for secrets and update README
+
+[33mcommit 90f4aaebb1c9ec6eaea3936487d8b5a4ad11d116[m
+Author: Alik <ashavskiy@gmail.com>
+Date:   Sat Jan 25 23:14:22 2025 +0200
+
+    first commit
