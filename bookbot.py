@@ -117,7 +117,12 @@ async def main():
     Main function to start the bot's polling loop.
     """
     dp.include_router(router)  # Add the router to the dispatcher
-    await dp.start_polling(bot)  # Start polling Telegram for updates
+
+    # Read the PORT from environment variables (default to 8080)
+    port = int(os.getenv("PORT", 8080))
+
+    logging.info(f"Starting bot on port {port}...")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     import asyncio
