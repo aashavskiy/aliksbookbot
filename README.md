@@ -57,7 +57,7 @@ pip install -r requirements.txt
 
 4. Configure the Bot
 
-Edit the config.py file to include your credentials and settings:
+Create the config.py file to include your credentials and settings:
 
 # config.py
 
