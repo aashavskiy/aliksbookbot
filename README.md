@@ -1,114 +1,139 @@
-Updated README.md
+# PocketBook Telegram Bot (Webhook Version)
 
-# Telegram Bot: Send-to-PocketBook
-
-This is a Telegram bot designed to simplify the process of uploading e-books to your PocketBook device. The bot allows authorized users to send book files directly to a predefined PocketBook email address through Telegram. It securely manages secrets and configurations using environment variables.
+This branch implements the **webhook version** of the PocketBook Telegram Bot, which allows users to send book files directly to their PocketBook email via Telegram. Instead of polling updates, this version uses a webhook to handle Telegram events more efficiently.
 
 ---
 
 ## **Features**
-- **File Uploads**: Accepts popular e-book formats (e.g., `.epub`, `.fb2`, `.mobi`) and sends them to PocketBook.
-- **Whitelist Security**: Only authorized users can interact with the bot.
-- **Environment Variables**: Secrets like API tokens and email credentials are securely managed using `.env` files or cloud-managed environment variables.
-- **Automatic File Cleanup**: Deletes temporary files after successful upload.
-- **SMTP Integration**: Sends files via email using the configured SMTP server.
-
----
-
-## **Project Structure**
-
-Here is a breakdown of the files in this repository:
-
-- **`bookbot.py`**:  
-  The main bot script that handles file uploads, user authentication, and sending books to PocketBook.
-
-- **`requirements.txt`**:  
-  Lists all the dependencies required for the bot to function.
-
-- **`.env`**:  
-  A file containing secrets such as the Telegram API token and email credentials (used locally, not included in the repository for security reasons).
-
-- **`whitelist.py`**:  
-  Contains a list of authorized Telegram user IDs (whitelist).
-
-- **`.gitignore`**:  
-  Specifies files and folders to exclude from version control (e.g., `.env`, virtual environment files, logs).
-
-- **`README.md`**:  
-  Explains the bot's purpose, features, setup, and usage instructions.
+- Receive book files via Telegram.
+- Validate users against a whitelist.
+- Automatically send received files to the configured PocketBook email using SMTP.
+- Webhook-based event handling for improved responsiveness.
+- Minimal HTTP server to handle webhook updates.
 
 ---
 
 ## **Setup Instructions**
 
-### **1. Clone the Repository**
-Clone this repository to your local machine:
+### **1. Prerequisites**
+- Python 3.8 or higher.
+- A valid Telegram Bot API token.
+- A PocketBook email address.
+- An SMTP server (e.g., Gmail) with valid credentials.
+- A publicly accessible URL for setting up the Telegram webhook (e.g., via **ngrok** or Google Cloud Run).
+
+---
+
+### **2. Clone the Repository**
 ```bash
-git clone https://github.com/username/send-to-pocketbook.git
-cd send-to-pocketbook
-
-2. Create a Virtual Environment
-
-Set up a virtual environment to manage dependencies:
-
-python3 -m venv myenv
-source myenv/bin/activate
+git clone https://github.com/aashavskiy/aliksbookbot.git
+cd aliksbookbot
+git checkout webhook-version
 
 3. Install Dependencies
 
-Install the required Python libraries:
+Create a virtual environment and install the required dependencies:
 
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
 pip install -r requirements.txt
 
-4. Create a .env File
+4. Create and Configure .env
 
-Create a .env file in the project root and add your secrets:
+Create a .env file in the project root and populate it with the following variables:
 
-API_TOKEN=your-telegram-bot-token
-POCKETBOOK_EMAIL=your-pocketbook-email@pbsync.com
+SERVICE_NAME=pocketbook-bot
+REGION=europe-central2
+
+API_TOKEN=your_telegram_bot_api_token
+POCKETBOOK_EMAIL=your_pocketbook_email
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
-EMAIL_ADDRESS=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
+EMAIL_ADDRESS=your_email_address
+EMAIL_PASSWORD=your_email_password
+WEBHOOK_URL=https://your-public-webhook-url
+PORT=8080
 
-5. Add Authorized Users
+	•	Replace the placeholder values (your_...) with your actual credentials.
+	•	The WEBHOOK_URL should point to your publicly accessible webhook endpoint (e.g., an ngrok URL or Google Cloud Run service URL).
 
-Edit the whitelist.py file to include the Telegram user IDs of authorized users:
+5. Run the Bot Locally
 
-# whitelist.py
-
-WHITELIST = [
-    123456789,  # Replace with your Telegram ID
-    987654321,  # Add more IDs as needed
-]
-
-6. Run the Bot
-
-Start the bot using the following command:
+If testing locally with ngrok:
+	1.	Start the bot:
 
 python bookbot.py
 
-Running the Bot in the Cloud
 
-For deploying the bot in a cloud environment like Google Cloud Run or Heroku, ensure you set the environment variables directly in the cloud platform instead of using .env. Example for Google Cloud Run:
+	2.	Start ngrok to expose your local server:
 
-gcloud run services update pocketbook-bot \
-    --update-env-vars API_TOKEN="your-telegram-bot-token",POCKETBOOK_EMAIL="your-pocketbook-email@pbsync.com",SMTP_SERVER="smtp.gmail.com",SMTP_PORT="587",EMAIL_ADDRESS="your-email@gmail.com",EMAIL_PASSWORD="your-app-password"
+ngrok http 8080
 
-Example Usage
-	1.	Start the bot in Telegram by sending the /start command.
-	2.	Send an e-book file (e.g., .epub) to the bot.
-	3.	The bot will upload the file to the configured PocketBook email and notify you when it’s successfully sent.
 
-Future Enhancements
-	•	Add multi-language support.
-	•	Extend functionality to support other e-reader platforms (e.g., Kindle, Bookmate).
-	•	Add support for larger files and chunked uploads.
+	3.	Copy the ngrok URL and update the WEBHOOK_URL in your .env file.
+	4.	Set the Telegram webhook:
+
+curl -X POST "https://api.telegram.org/bot<API_TOKEN>/setWebhook" \
+     -d "url=<YOUR_NGROK_URL>"
+
+
+
+Replace <API_TOKEN> and <YOUR_NGROK_URL> with your bot token and ngrok URL.
+
+6. Deploy to Google Cloud Run
+
+To deploy the bot to Google Cloud Run:
+	1.	Build and deploy the service:
+
+gcloud run deploy pocketbook-bot \
+    --source=. \
+    --region=europe-central2 \
+    --allow-unauthenticated \
+    --set-env-vars API_TOKEN=your_telegram_bot_api_token,POCKETBOOK_EMAIL=your_pocketbook_email,SMTP_SERVER=smtp.gmail.com,SMTP_PORT=587,EMAIL_ADDRESS=your_email_address,EMAIL_PASSWORD=your_email_password,WEBHOOK_URL=https://your-cloud-run-url
+
+
+	2.	Set the webhook to the Cloud Run URL:
+
+curl -X POST "https://api.telegram.org/bot<API_TOKEN>/setWebhook" \
+     -d "url=https://your-cloud-run-url"
+
+Usage
+	1.	Start a conversation with your bot on Telegram.
+	2.	Send the /start command to receive a welcome message.
+	3.	Upload a book file. If you’re whitelisted, the bot will forward the file to your PocketBook email.
+
+Environment Variables
+
+Variable	Description
+SERVICE_NAME	Google Cloud Run service name.
+REGION	Google Cloud Run deployment region.
+API_TOKEN	Telegram Bot API token.
+POCKETBOOK_EMAIL	PocketBook email address.
+SMTP_SERVER	SMTP server address (e.g., smtp.gmail.com).
+SMTP_PORT	SMTP server port (default: 587 for TLS).
+EMAIL_ADDRESS	Email address used for sending files.
+EMAIL_PASSWORD	Password or app-specific password for the email.
+WEBHOOK_URL	Public webhook URL for receiving updates.
+PORT	Local port for running the webhook server.
+
+Troubleshooting
+
+Common Issues
+	•	Webhook Setup Fails: Ensure your WEBHOOK_URL is publicly accessible.
+	•	SMTP Errors: Double-check your email credentials and ensure your SMTP server allows third-party access.
+	•	File Not Sent: Verify that the sender’s Telegram ID is in the whitelist.
+
+Check Logs
+
+Run the bot with increased logging to debug:
+
+python bookbot.py -vv
 
 Contributing
 
-Feel free to fork this repository and submit pull requests for improvements or new features.
+Feel free to submit issues and pull requests for new features or bug fixes.
 
 License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License.
+
