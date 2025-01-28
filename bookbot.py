@@ -1,5 +1,6 @@
 import os
 import logging
+import subprocess
 from aiogram import Bot, Dispatcher
 from aiogram.dispatcher.router import Router
 from aiogram.filters import Command
@@ -35,6 +36,21 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
+def get_git_version():
+    """
+    Retrieves the current version of the bot from Git tags.
+    Falls back to 'unknown' if not available.
+    """
+    try:
+        version = subprocess.check_output(["git", "describe", "--tags"], stderr=subprocess.STDOUT)
+        return version.strip().decode("utf-8")
+    except subprocess.CalledProcessError:
+        return "unknown"
+    except FileNotFoundError:
+        return "unknown"
+
+# Define the bot version
+BOT_VERSION = get_git_version()
 
 # Directory for temporarily storing downloaded files
 DOWNLOAD_FOLDER = "downloads"
@@ -113,12 +129,19 @@ def send_to_pocketbook(file_path, file_name):
         server.sendmail(EMAIL_ADDRESS, POCKETBOOK_EMAIL, msg.as_string())  # Send the email
 
 # Start a lightweight HTTP server for Google Cloud Run
+async def version_endpoint(request):
+    """
+    Returns the bot's version as a response.
+    """
+    return web.Response(text=f"Bot version: {BOT_VERSION}", status=200)
+
 async def start_server():
     async def healthcheck(request):
         return web.Response(text="Bot is running!")
 
     app = web.Application()
     app.router.add_get("/", healthcheck)
+    app.router.add_get("/version", version_endpoint)  # Add version endpoint
 
     port = int(os.getenv("PORT", 8080))
     runner = web.AppRunner(app)
@@ -126,6 +149,7 @@ async def start_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     logging.info(f"HTTP server running on port {port}...")
+
 
 # Main entry point of the bot
 async def main():
