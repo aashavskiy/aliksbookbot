@@ -12,11 +12,10 @@ from smtplib import SMTP
 from aiohttp import web
 from dotenv import load_dotenv
 from whitelist import WHITELIST  # Import authorized user list
-from pydantic import ValidationError
 
-# Configure logging for debugging purposes
+# Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Change to DEBUG for detailed logs
+    level=logging.INFO,  # Set to INFO for cleaner logs
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
@@ -64,7 +63,7 @@ async def set_webhook():
     """
     try:
         await bot.set_webhook(WEBHOOK_URL)
-        logging.info(f"Webhook set to: {WEBHOOK_URL}")
+        logging.info(f"Webhook successfully set to: {WEBHOOK_URL}")
     except Exception as e:
         logging.error(f"Failed to set webhook: {e}")
         raise
@@ -140,22 +139,16 @@ async def handle_webhook(request):
     """
     try:
         body = await request.json()
-        logging.debug(f"Received webhook payload: {body}")  # Log raw payload
 
-        # Validate the payload
-        try:
-            update = Update.validate(body)
-            logging.info(f"Update parsed successfully: {update}")
-        except ValidationError as ve:
-            logging.error(f"Validation error: {ve}")
-            return web.Response(status=400, text=f"Bad Request: {ve}")
-
-        # Process the parsed update
+        # Parse the update object
+        update = Update.validate(body)  # Validation to ensure the payload is correct
         await dp.feed_update(bot, update)
         return web.Response(status=200, text="OK")
     except Exception as e:
         logging.error(f"Webhook error: {e}")
         return web.Response(status=500, text="Internal Server Error")
+
+
 # Start a lightweight HTTP server to receive webhook updates
 async def start_server():
     """
@@ -181,20 +174,20 @@ async def main():
     Main function to set the webhook and start the HTTP server.
     Ensures that the bot's session is properly closed on exit.
     """
-    logging.debug("Starting the bot...")
+    logging.info("Starting the bot...")
     dp.include_router(router)
 
     try:
-        logging.debug("Setting webhook...")
+        logging.info("Setting webhook...")
         await set_webhook()
 
-        logging.debug("Starting HTTP server...")
+        logging.info("Starting HTTP server...")
         await start_server()
     except Exception as e:
         logging.critical(f"Unhandled exception in main: {e}")
         raise
     finally:
-        logging.debug("Closing bot session...")
+        logging.info("Closing bot session...")
         await bot.session.close()
 
 
