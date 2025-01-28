@@ -37,9 +37,11 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 
+# Versioning
 def get_git_version():
     """
     Retrieves the current version of the bot from the VERSION file.
+    Falls back to 'unknown' if the file is missing.
     """
     try:
         with open("VERSION", "r") as version_file:
