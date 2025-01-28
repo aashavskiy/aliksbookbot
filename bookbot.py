@@ -12,13 +12,13 @@ from smtplib import SMTP
 from aiohttp import web
 from dotenv import load_dotenv
 from whitelist import WHITELIST  # Import authorized user list
-import asyncio
-import logging
+from pydantic import ValidationError
 
-# Remove Windows-specific event loop policy
-# asyncio.run(asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()))  # REMOVE THIS LINE
-
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging for debugging purposes
+logging.basicConfig(
+    level=logging.DEBUG,  # Change to DEBUG for detailed logs
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -31,13 +31,21 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  # SMTP port (default: 587 for TLS)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Email used to send books
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Password or app-specific password for the email
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Webhook URL for Telegram updates
+PORT = int(os.getenv("PORT", 8080))  # Port for the HTTP server
 
 # Validate that all required environment variables are provided
-if not all([API_TOKEN, POCKETBOOK_EMAIL, SMTP_SERVER, EMAIL_ADDRESS, EMAIL_PASSWORD, WEBHOOK_URL]):
-    raise ValueError("One or more required environment variables are missing.")
-
-# Configure logging for debugging purposes
-logging.basicConfig(level=logging.INFO)
+required_vars = [
+    "API_TOKEN",
+    "POCKETBOOK_EMAIL",
+    "SMTP_SERVER",
+    "EMAIL_ADDRESS",
+    "EMAIL_PASSWORD",
+    "WEBHOOK_URL",
+]
+for var in required_vars:
+    if not os.getenv(var):
+        logging.error(f"Environment variable {var} is missing!")
+        raise ValueError(f"Environment variable {var} is missing!")
 
 # Initialize the bot and dispatcher
 bot = Bot(token=API_TOKEN)
@@ -54,8 +62,12 @@ async def set_webhook():
     """
     Sets the webhook for the bot using the provided WEBHOOK_URL.
     """
-    await bot.set_webhook(WEBHOOK_URL)
-    logging.info(f"Webhook set to: {WEBHOOK_URL}")
+    try:
+        await bot.set_webhook(WEBHOOK_URL)
+        logging.info(f"Webhook set to: {WEBHOOK_URL}")
+    except Exception as e:
+        logging.error(f"Failed to set webhook: {e}")
+        raise
 
 
 # Handle the /start command
@@ -75,7 +87,6 @@ async def handle_document(message: Message):
     Downloads the file, validates the user against the whitelist,
     and sends the file to PocketBook via email.
     """
-    # Check if the user is in the whitelist
     if message.from_user.id not in WHITELIST:
         await message.reply("You are not allowed to send files to this bot.")
         return
@@ -83,24 +94,18 @@ async def handle_document(message: Message):
     document = message.document
     file_name = document.file_name
 
-    # Path to save the downloaded file
     file_path = os.path.join(DOWNLOAD_FOLDER, file_name)
 
     try:
-        # Fetch file information from Telegram
         file_info = await bot.get_file(document.file_id)
-        # Download the file to the specified path
         await bot.download_file(file_info.file_path, destination=file_path)
         await message.reply(f"File {file_name} has been successfully downloaded. Sending it to your PocketBook...")
-
-        # Send the file to the PocketBook email
         send_to_pocketbook(file_path, file_name)
         await message.reply("The book has been successfully sent to PocketBook!")
     except Exception as e:
         logging.error(f"Error while processing the document: {e}")
         await message.reply("An error occurred while sending the book.")
     finally:
-        # Remove the file from the local storage after sending
         if os.path.exists(file_path):
             os.remove(file_path)
 
@@ -115,22 +120,17 @@ def send_to_pocketbook(file_path, file_name):
     msg["To"] = POCKETBOOK_EMAIL
     msg["Subject"] = "New Book"
 
-    # Attach the file to the email
     with open(file_path, "rb") as attachment:
         part = MIMEBase("application", "octet-stream")
         part.set_payload(attachment.read())
     encoders.encode_base64(part)
-    part.add_header(
-        "Content-Disposition",
-        f"attachment; filename={file_name}",
-    )
+    part.add_header("Content-Disposition", f"attachment; filename={file_name}")
     msg.attach(part)
 
-    # Connect to the SMTP server and send the email
     with SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()  # Start TLS encryption
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)  # Authenticate
-        server.sendmail(EMAIL_ADDRESS, POCKETBOOK_EMAIL, msg.as_string())  # Send the email
+        server.starttls()
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.sendmail(EMAIL_ADDRESS, POCKETBOOK_EMAIL, msg.as_string())
 
 
 # Handle incoming webhook requests
@@ -140,28 +140,39 @@ async def handle_webhook(request):
     """
     try:
         body = await request.json()
-        update = Update.to_object(body)
+        logging.debug(f"Received webhook payload: {body}")  # Log raw payload
+
+        # Validate the payload
+        try:
+            update = Update.validate(body)
+            logging.info(f"Update parsed successfully: {update}")
+        except ValidationError as ve:
+            logging.error(f"Validation error: {ve}")
+            return web.Response(status=400, text=f"Bad Request: {ve}")
+
+        # Process the parsed update
         await dp.feed_update(bot, update)
         return web.Response(status=200, text="OK")
     except Exception as e:
         logging.error(f"Webhook error: {e}")
         return web.Response(status=500, text="Internal Server Error")
-
-
 # Start a lightweight HTTP server to receive webhook updates
 async def start_server():
     """
     Starts an HTTP server to handle Telegram webhook updates.
+    Keeps running indefinitely.
     """
     app = web.Application()
     app.router.add_post("/", handle_webhook)
 
-    port = int(os.getenv("PORT", 8080))
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    logging.info(f"Webhook server running on port {port}...")
+    logging.info(f"Webhook server running on port {PORT}...")
+
+    # Keep the server running indefinitely
+    await asyncio.Event().wait()
 
 
 # Main entry point of the bot
@@ -170,19 +181,26 @@ async def main():
     Main function to set the webhook and start the HTTP server.
     Ensures that the bot's session is properly closed on exit.
     """
+    logging.debug("Starting the bot...")
     dp.include_router(router)
 
     try:
-        # Set the webhook
+        logging.debug("Setting webhook...")
         await set_webhook()
 
-        # Start the HTTP server
+        logging.debug("Starting HTTP server...")
         await start_server()
+    except Exception as e:
+        logging.critical(f"Unhandled exception in main: {e}")
+        raise
     finally:
-        # Properly close the bot session
+        logging.debug("Closing bot session...")
         await bot.session.close()
 
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        logging.critical(f"Script terminated with an unhandled exception: {e}")
