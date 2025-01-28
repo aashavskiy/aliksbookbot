@@ -1,10 +1,9 @@
 import os
 import logging
-import subprocess
 from aiogram import Bot, Dispatcher
+from aiogram.types import Update, Message
 from aiogram.dispatcher.router import Router
 from aiogram.filters import Command
-from aiogram.types import Message
 from aiogram.fsm.storage.memory import MemoryStorage
 from email.mime.base import MIMEBase
 from email import encoders
@@ -24,9 +23,10 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")  # SMTP server (e.g., Gmail's SMTP)
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  # SMTP port (default: 587 for TLS)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Email used to send books
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Password or app-specific password for the email
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Webhook URL for Telegram updates
 
 # Validate that all required environment variables are provided
-if not all([API_TOKEN, POCKETBOOK_EMAIL, SMTP_SERVER, EMAIL_ADDRESS, EMAIL_PASSWORD]):
+if not all([API_TOKEN, POCKETBOOK_EMAIL, SMTP_SERVER, EMAIL_ADDRESS, EMAIL_PASSWORD, WEBHOOK_URL]):
     raise ValueError("One or more required environment variables are missing.")
 
 # Configure logging for debugging purposes
@@ -37,12 +37,19 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 
-# Get the bot version from the environment variable
-BOT_VERSION = os.getenv("BOT_VERSION", "unknown")
-
 # Directory for temporarily storing downloaded files
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+
+# Function to set the webhook for Telegram
+async def set_webhook():
+    """
+    Sets the webhook for the bot using the provided WEBHOOK_URL.
+    """
+    await bot.set_webhook(WEBHOOK_URL)
+    logging.info(f"Webhook set to: {WEBHOOK_URL}")
+
 
 # Handle the /start command
 @router.message(Command(commands=["start"]))
@@ -51,6 +58,7 @@ async def send_welcome(message: Message):
     Sends a welcome message to the user when they send the /start command.
     """
     await message.reply("Hi! Send me a book file, and I’ll upload it to your PocketBook.")
+
 
 # Handle document uploads
 @router.message(lambda message: message.document is not None)
@@ -89,6 +97,7 @@ async def handle_document(message: Message):
         if os.path.exists(file_path):
             os.remove(file_path)
 
+
 # Function to send a file to the PocketBook email
 def send_to_pocketbook(file_path, file_name):
     """
@@ -116,47 +125,51 @@ def send_to_pocketbook(file_path, file_name):
         server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)  # Authenticate
         server.sendmail(EMAIL_ADDRESS, POCKETBOOK_EMAIL, msg.as_string())  # Send the email
 
-# Start a lightweight HTTP server for Google Cloud Run
-async def version_endpoint(request):
-    """
-    Returns the bot's version as a response.
-    """
-    return web.Response(text=f"Bot version: {BOT_VERSION}", status=200)
 
+# Handle incoming webhook requests
+async def handle_webhook(request):
+    """
+    Handles incoming updates from Telegram via webhook.
+    """
+    try:
+        body = await request.json()
+        update = Update.to_object(body)
+        await dp.feed_update(bot, update)
+        return web.Response(status=200, text="OK")
+    except Exception as e:
+        logging.error(f"Webhook error: {e}")
+        return web.Response(status=500, text="Internal Server Error")
+
+
+# Start a lightweight HTTP server to receive webhook updates
 async def start_server():
-    async def healthcheck(request):
-        return web.Response(text="Bot is running!")
-
+    """
+    Starts an HTTP server to handle Telegram webhook updates.
+    """
     app = web.Application()
-    app.router.add_get("/", healthcheck)
-    app.router.add_get("/version", version_endpoint)  # Add version endpoint
+    app.router.add_post("/", handle_webhook)
 
     port = int(os.getenv("PORT", 8080))
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    logging.info(f"HTTP server running on port {port}...")
-
-async def version_endpoint(request):
-    """
-    Returns the bot's version as a response.
-    """
-    return web.Response(text=f"Bot version: {BOT_VERSION}", status=200)
+    logging.info(f"Webhook server running on port {port}...")
 
 
 # Main entry point of the bot
 async def main():
     """
-    Main function to start the bot's polling loop and HTTP server.
+    Main function to set the webhook and start the HTTP server.
     """
     dp.include_router(router)
 
-    # Start HTTP server in the background
+    # Set the webhook
+    await set_webhook()
+
+    # Start the HTTP server
     await start_server()
 
-    # Start Telegram bot polling
-    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     import asyncio
