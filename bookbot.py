@@ -13,6 +13,8 @@ from aiohttp import web
 from dotenv import load_dotenv
 from whitelist import WHITELIST  # Import authorized user list
 
+##test for auto deployment
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  # Set to INFO for cleaner logs
