@@ -12,6 +12,13 @@ from smtplib import SMTP
 from aiohttp import web
 from dotenv import load_dotenv
 from whitelist import WHITELIST  # Import authorized user list
+import asyncio
+import logging
+
+# Remove Windows-specific event loop policy
+# asyncio.run(asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()))  # REMOVE THIS LINE
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -161,14 +168,19 @@ async def start_server():
 async def main():
     """
     Main function to set the webhook and start the HTTP server.
+    Ensures that the bot's session is properly closed on exit.
     """
     dp.include_router(router)
 
-    # Set the webhook
-    await set_webhook()
+    try:
+        # Set the webhook
+        await set_webhook()
 
-    # Start the HTTP server
-    await start_server()
+        # Start the HTTP server
+        await start_server()
+    finally:
+        # Properly close the bot session
+        await bot.session.close()
 
 
 if __name__ == "__main__":
