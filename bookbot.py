@@ -37,20 +37,8 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 
-# Versioning
-def get_git_version():
-    """
-    Retrieves the current version of the bot from the VERSION file.
-    Falls back to 'unknown' if the file is missing.
-    """
-    try:
-        with open("VERSION", "r") as version_file:
-            return version_file.read().strip()
-    except FileNotFoundError:
-        return "unknown"
-
-# Set the bot version
-BOT_VERSION = get_git_version()
+# Get the bot version from the environment variable
+BOT_VERSION = os.getenv("BOT_VERSION", "unknown")
 
 # Directory for temporarily storing downloaded files
 DOWNLOAD_FOLDER = "downloads"
@@ -149,6 +137,12 @@ async def start_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     logging.info(f"HTTP server running on port {port}...")
+
+async def version_endpoint(request):
+    """
+    Returns the bot's version as a response.
+    """
+    return web.Response(text=f"Bot version: {BOT_VERSION}", status=200)
 
 
 # Main entry point of the bot
