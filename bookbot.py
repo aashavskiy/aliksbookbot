@@ -36,20 +36,18 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
+
 def get_git_version():
     """
-    Retrieves the current version of the bot from Git tags.
-    Falls back to 'unknown' if not available.
+    Retrieves the current version of the bot from the VERSION file.
     """
     try:
-        version = subprocess.check_output(["git", "describe", "--tags"], stderr=subprocess.STDOUT)
-        return version.strip().decode("utf-8")
-    except subprocess.CalledProcessError:
-        return "unknown"
+        with open("VERSION", "r") as version_file:
+            return version_file.read().strip()
     except FileNotFoundError:
         return "unknown"
 
-# Define the bot version
+# Set the bot version
 BOT_VERSION = get_git_version()
 
 # Directory for temporarily storing downloaded files

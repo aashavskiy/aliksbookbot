@@ -14,15 +14,15 @@ steps:
     # Check out the main branch (ensure it's the default branch)
     git checkout main
 
-# Step 2: Build the Docker image.
+# Step 2: Build the Docker image with the Git version as an argument.
 - name: 'gcr.io/cloud-builders/docker'
   args:
   - 'build'
   - '-t'
-  - 'gcr.io/$PROJECT_ID/bookbot' # Tag the Docker image with the project ID
+  - 'gcr.io/$PROJECT_ID/bookbot'
+  - '--build-arg'
+  - "DEFAULT_VERSION=$(git describe --tags || echo 'unknown')" # Pass Git version as an argument
   - '.'
-  env:
-  - 'DEFAULT_VERSION=$(git describe --tags || echo "unknown")' # Pass the version as an environment variable
 
 # Step 3: Push the Docker image to Google Container Registry.
 images:
@@ -30,8 +30,8 @@ images:
 
 # Step 4 (Optional): Deploy directly to Cloud Run (if auto-deployment is configured).
 # Uncomment the following section to deploy automatically:
-- name: 'gcr.io/cloud-builders/gcloud'
-  args:
+ - name: 'gcr.io/cloud-builders/gcloud'
+   args:
    - 'run'
    - 'deploy'
    - 'pocketbook-bot'
