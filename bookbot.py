@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.types import Update, Message
 from aiogram.dispatcher.router import Router
@@ -13,40 +14,32 @@ from aiohttp import web
 from dotenv import load_dotenv
 from whitelist import WHITELIST  # Import authorized user list
 
-##test for auto deployment
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,  # Set to INFO for cleaner logs
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-
 # Load environment variables from .env file
 load_dotenv()
 
-# Fetch required secrets from environment variables
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+# Fetch required environment variables
 API_TOKEN = os.getenv("API_TOKEN")  # Telegram Bot API token
 POCKETBOOK_EMAIL = os.getenv("POCKETBOOK_EMAIL")  # PocketBook email for file delivery
 SMTP_SERVER = os.getenv("SMTP_SERVER")  # SMTP server (e.g., Gmail's SMTP)
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  # SMTP port (default: 587 for TLS)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")  # Email used to send books
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Password or app-specific password for the email
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Webhook URL for Telegram updates
-PORT = int(os.getenv("PORT", 8080))  # Port for the HTTP server
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Email password (or app-specific password)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Webhook URL for Telegram updates (only for webhook mode)
+BOT_MODE = os.getenv("BOT_MODE", "polling").lower()  # Default to polling if not set
+PORT = int(os.getenv("PORT", 8080))  # Port for the HTTP server (webhook mode only)
 
-# Validate that all required environment variables are provided
-required_vars = [
-    "API_TOKEN",
-    "POCKETBOOK_EMAIL",
-    "SMTP_SERVER",
-    "EMAIL_ADDRESS",
-    "EMAIL_PASSWORD",
-    "WEBHOOK_URL",
-]
+# Validate required environment variables
+required_vars = ["API_TOKEN", "POCKETBOOK_EMAIL", "SMTP_SERVER", "EMAIL_ADDRESS", "EMAIL_PASSWORD"]
+if BOT_MODE == "webhook" and not WEBHOOK_URL:
+    required_vars.append("WEBHOOK_URL")
+
 for var in required_vars:
     if not os.getenv(var):
-        logging.error(f"Environment variable {var} is missing!")
-        raise ValueError(f"Environment variable {var} is missing!")
+        logging.error(f"Missing required environment variable: {var}")
+        raise ValueError(f"Missing required environment variable: {var}")
 
 # Initialize the bot and dispatcher
 bot = Bot(token=API_TOKEN)
@@ -58,10 +51,10 @@ DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
 
-# Function to set the webhook for Telegram
+# Function to set the webhook
 async def set_webhook():
     """
-    Sets the webhook for the bot using the provided WEBHOOK_URL.
+    Sets the webhook for Telegram updates.
     """
     try:
         await bot.set_webhook(WEBHOOK_URL)
@@ -75,7 +68,7 @@ async def set_webhook():
 @router.message(Command(commands=["start"]))
 async def send_welcome(message: Message):
     """
-    Sends a welcome message to the user when they send the /start command.
+    Sends a welcome message when the /start command is used.
     """
     await message.reply("Hi! Send me a book file, and I’ll upload it to your PocketBook.")
 
@@ -84,9 +77,7 @@ async def send_welcome(message: Message):
 @router.message(lambda message: message.document is not None)
 async def handle_document(message: Message):
     """
-    Handles document uploads from users.
-    Downloads the file, validates the user against the whitelist,
-    and sends the file to PocketBook via email.
+    Handles document uploads, checks the whitelist, and sends books via email.
     """
     if message.from_user.id not in WHITELIST:
         await message.reply("You are not allowed to send files to this bot.")
@@ -94,7 +85,6 @@ async def handle_document(message: Message):
 
     document = message.document
     file_name = document.file_name
-
     file_path = os.path.join(DOWNLOAD_FOLDER, file_name)
 
     try:
@@ -111,7 +101,7 @@ async def handle_document(message: Message):
             os.remove(file_path)
 
 
-# Function to send a file to the PocketBook email
+# Function to send a file to PocketBook email
 def send_to_pocketbook(file_path, file_name):
     """
     Sends the specified file to the PocketBook email address using SMTP.
@@ -134,16 +124,14 @@ def send_to_pocketbook(file_path, file_name):
         server.sendmail(EMAIL_ADDRESS, POCKETBOOK_EMAIL, msg.as_string())
 
 
-# Handle incoming webhook requests
+# Webhook handler
 async def handle_webhook(request):
     """
-    Handles incoming updates from Telegram via webhook.
+    Handles incoming Telegram updates via webhook.
     """
     try:
         body = await request.json()
-
-        # Parse the update object
-        update = Update.validate(body)  # Validation to ensure the payload is correct
+        update = Update.to_object(body)
         await dp.feed_update(bot, update)
         return web.Response(status=200, text="OK")
     except Exception as e:
@@ -151,11 +139,10 @@ async def handle_webhook(request):
         return web.Response(status=500, text="Internal Server Error")
 
 
-# Start a lightweight HTTP server to receive webhook updates
+# Start a lightweight HTTP server for webhook mode
 async def start_server():
     """
-    Starts an HTTP server to handle Telegram webhook updates.
-    Keeps running indefinitely.
+    Starts an HTTP server for handling webhook updates.
     """
     app = web.Application()
     app.router.add_post("/", handle_webhook)
@@ -166,35 +153,26 @@ async def start_server():
     await site.start()
     logging.info(f"Webhook server running on port {PORT}...")
 
-    # Keep the server running indefinitely
-    await asyncio.Event().wait()
+    await asyncio.Event().wait()  # Keep the server running
 
 
-# Main entry point of the bot
+# Main entry point
 async def main():
     """
-    Main function to set the webhook and start the HTTP server.
-    Ensures that the bot's session is properly closed on exit.
+    Starts the bot in either polling or webhook mode based on the BOT_MODE environment variable.
     """
-    logging.info("Starting the bot...")
     dp.include_router(router)
 
-    try:
-        logging.info("Setting webhook...")
+    if BOT_MODE == "webhook":
+        logging.info("Starting in Webhook mode...")
         await set_webhook()
-
-        logging.info("Starting HTTP server...")
         await start_server()
-    except Exception as e:
-        logging.critical(f"Unhandled exception in main: {e}")
-        raise
-    finally:
-        logging.info("Closing bot session...")
-        await bot.session.close()
+    else:
+        logging.info("Starting in Polling mode...")
+        await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    import asyncio
     try:
         asyncio.run(main())
     except Exception as e:
