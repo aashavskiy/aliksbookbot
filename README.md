@@ -1,86 +1,99 @@
-📚 PocketBook Telegram Bot (Webhook Version)
+# PocketBook Telegram Bot
 
-This Telegram bot allows users to send book files directly to their PocketBook e-reader via email. This version uses webhooks instead of polling, making it more efficient and scalable.
+This bot allows users to send books via Telegram, and it automatically forwards them to their PocketBook email. The bot supports two modes of operation: **polling** (for local execution) and **webhook** (for deployment on cloud services like Google Cloud Run).
 
-🚀 Features
-	•	✅ Accepts book files from whitelisted Telegram users.
-	•	✅ Sends uploaded books to a PocketBook email.
-	•	✅ Uses webhooks for event-driven message processing.
-	•	✅ Hosted on Google Cloud Run for seamless deployment.
-	•	✅ Secure authentication via environment variables.
+## Features
+- Accepts document uploads via Telegram
+- Sends books to a predefined PocketBook email
+- Supports **polling** and **webhook** modes (configurable via environment variable `BOT_MODE`)
+- Runs on Google Cloud Run or locally
+- Uses environment variables for configuration security
 
-📂 Project Structure
+## Project Structure
+```
+.
+├── bookbot.py           # Main bot script
+├── requirements.txt     # Dependencies
+├── Dockerfile          # Docker configuration for Cloud Run
+├── cloudbuild.yaml     # Google Cloud Build configuration
+├── .env.example        # Example environment variable file
+├── set_gcloud_env.py   # Script to upload environment variables to Google Cloud
+├── whitelist.py        # List of allowed Telegram user IDs
+```
 
-/project-root
-│── bookbot.py               # Main bot script (webhook-based)
-│── requirements.txt         # Python dependencies
-│── set_gcloud_env.py        # Script to set Google Cloud Run environment variables
-│── cloudbuild.yaml          # Google Cloud Build configuration for automated deployment
-│── whitelist.py             # Contains the Telegram user whitelist
-│── .env                     # Environment variables (not included in Git)
-│── .env.example             # Template for environment variables
-│── README.md                # This documentation file
+## Installation
+### **Local Setup**
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/aashavskiy/aliksbookbot.git
+   cd aliksbookbot
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python3 -m venv myvenv
+   source myvenv/bin/activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Create a `.env` file from `.env.example` and fill in your credentials.
 
-🔧 Setup Instructions
-
-1️⃣ Install Dependencies
-
-Make sure you have Python installed. Then, install dependencies:
-
-pip install -r requirements.txt
-
-2️⃣ Set Up Environment Variables
-
-Create a .env file using .env.example as a reference. Fill in your values.
-
-To load the environment variables, run:
-
-source .env
-
-3️⃣ Run Locally with Webhooks
-
-You need ngrok to expose your local server to the internet.
-	1.	Start ngrok:
-
-ngrok http 8080
-
-Copy the public URL (e.g., https://xxxx.ngrok-free.app).
-
-	2.	Run the bot:
-
+### **Running Locally**
+#### **Polling Mode**
+To start the bot using **polling** (suitable for local development):
+```bash
+export BOT_MODE=polling
 python bookbot.py
+```
 
-☁️ Deployment to Google Cloud Run
+#### **Webhook Mode** (Requires `ngrok` or public server)
+1. Install and start `ngrok`:
+   ```bash
+   ngrok http 8080
+   ```
+   Copy the `ngrok` URL (e.g., `https://xxxx.ngrok.io`).
+2. Set the webhook URL in `.env`:
+   ```bash
+   export WEBHOOK_URL=https://xxxx.ngrok.io
+   export BOT_MODE=webhook
+   ```
+3. Start the bot:
+   ```bash
+   python bookbot.py
+   ```
 
-This bot is deployed using Google Cloud Run.
+## Deployment on Google Cloud Run
+### **Prerequisites**
+- Google Cloud SDK installed
+- A Google Cloud project with billing enabled
 
-1️⃣ Set Environment Variables in Google Cloud Run
+### **Steps to Deploy**
+1. Authenticate with Google Cloud:
+   ```bash
+   gcloud auth login
+   gcloud config set project aliks-book-bot
+   ```
+2. Build and push the container:
+   ```bash
+   gcloud builds submit --tag gcr.io/aliks-book-bot/bookbot
+   ```
+3. Deploy the bot:
+   ```bash
+   gcloud run deploy pocketbook-bot \
+      --image gcr.io/aliks-book-bot/bookbot \
+      --region europe-central2 \
+      --platform managed \
+      --allow-unauthenticated \
+      --set-env-vars BOT_MODE=webhook,WEBHOOK_URL=https://pocketbook-bot-xxxx.run.app
+   ```
 
+## Updating Google Cloud Run Environment Variables
+If you update your `.env` file, use the following script:
+```bash
 python set_gcloud_env.py
+```
 
-2️⃣ Deploy to Google Cloud Run
-
-gcloud run deploy pocketbook-bot \
-  --region europe-central2 \
-  --source .
-
-Current Deployment Info:
-	•	Cloud Run URL: PocketBook Bot
-	•	Google Cloud Project ID: aliks-book-bot
-	•	Service Name: pocketbook-bot
-	•	Region: europe-central2
-
-📝 Notes
-	•	Webhooks vs Polling: This branch uses webhooks. If you need polling, switch to the poll-version branch.
-	•	Environment Variables: Secrets are stored in .env, which should never be committed to Git.
-	•	Google Cloud Run Scaling: Auto-scales based on demand but may have cold starts.
-	•	Debugging Webhooks: Run locally using ngrok and check logs for errors.
-
-📢 Contributing
-
-Feel free to submit issues or pull requests to improve this bot.
-
-📜 License
-
-MIT License. Use freely but with proper attribution.
+## License
+MIT License
 
