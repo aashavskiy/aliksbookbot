@@ -127,13 +127,16 @@ def send_to_pocketbook(file_path, file_name):
 # Webhook handler
 async def handle_webhook(request):
     """
-    Handles incoming Telegram updates via webhook.
+    Handles incoming updates from Telegram via webhook.
     """
     try:
         body = await request.json()
-        update = Update.to_object(body)
+        logging.debug(f"Received webhook payload: {body}")  # Log the raw payload
+
+        update = Update.model_validate(body)  # Ensure correct structure
         await dp.feed_update(bot, update)
         return web.Response(status=200, text="OK")
+
     except Exception as e:
         logging.error(f"Webhook error: {e}")
         return web.Response(status=500, text="Internal Server Error")
