@@ -97,3 +97,4 @@ python set_gcloud_env.py
 ## License
 MIT License
 
+testing CI build (29.01.2025)
