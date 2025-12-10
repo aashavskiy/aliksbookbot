@@ -5,6 +5,10 @@ This bot allows users to send books via Telegram, and it automatically forwards 
 ## Features
 - Accepts document uploads via Telegram
 - Sends books to a predefined PocketBook email
+- Validates allowed formats (`epub`, `fb2`, `mobi`, `pdf`, `txt`) and a 25 MB size limit before downloading
+- Per-user rate limiting (10 files/hour) to reduce spam and SMTP abuse
+- Retries downloads and email delivery with backoff; email sending runs off the main async loop
+- Health-check endpoint available in webhook mode at `/health`
 - Supports **polling** and **webhook** modes (configurable via environment variable `BOT_MODE`)
 - Runs on Google Cloud Run or locally
 - Uses environment variables for configuration security
@@ -39,6 +43,11 @@ This bot allows users to send books via Telegram, and it automatically forwards 
    ```
 4. Create a `.env` file from `.env.example` and fill in your credentials.
 
+### Security recommendations
+- Use email app passwords instead of your primary credentials for `EMAIL_PASSWORD`.
+- In production (e.g., Cloud Run), store secrets in the platform's secret manager instead of a plain `.env` file.
+- Keep your PocketBook email private and restrict bot access via `whitelist.py`.
+
 ### **Running Locally**
 #### **Polling Mode**
 To start the bot using **polling** (suitable for local development):
@@ -62,6 +71,7 @@ python bookbot.py
    ```bash
    python bookbot.py
    ```
+   The webhook server exposes `/health` for readiness probes.
 
 ## Deployment on Google Cloud Run
 ### **Prerequisites**
